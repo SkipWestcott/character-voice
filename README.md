@@ -1,65 +1,147 @@
 # Character Voice
 
-A generic, local-first command and execution layer for character voice generation with Qwen3-TTS.
+**Create and clean up local AI character voices from short audio samples, then generate speech with reusable voice variants.**
 
-The package separates reusable execution logic from machine-specific configuration and private character data.
+Everything runs locally using Qwen3-TTS. Keep your recordings, voice variants, generated audio, and character data on your own machine.
 
-## Architecture
+## Capabilities
+
+### 1. Create a Voice Variant
+
+Start with a short voice sample and turn it into a reusable voice variant.
 
 ```text
-Command
-  ↓
-Execute
-  ↓
-Qwen3-TTS Python environment
-  ↓
-Qwen3TTSModel
-  ↓
-reference audio + text + generation parameters
-  ↓
-WAV output
+Sample Audio → Voice Variant
 ```
 
-ComfyUI is optional. It may provide model, input, or output storage, but it is not required by the core TTS executor.
+A voice variant captures the characteristics you want to reuse for a character. Create multiple variants from different samples or processing approaches and compare the results.
 
-## Design principle
+### 2. Clean Up a Sample Clip
 
-> The repository describes capabilities; configuration describes machines; private project data describes characters.
+Have a good performance recorded with poor audio quality? Clean the clip before using it as a voice reference.
 
-## Privacy
+```text
+Sample Clip → Cleanup → Reference Clip
+```
 
-Do not commit:
-- private reference recordings
-- generated character audio
-- real character names or dialogue
-- local usernames, hostnames, IP addresses, or private URLs
-- API keys, tokens, credentials, or secrets
-- local model caches/checkpoints unless redistribution is explicitly permitted
+The cleanup pipeline can be used for things such as:
 
-See `docs/privacy.md` for the public/private boundary.
+* noise reduction
+* silence / speech trimming
+* high-pass filtering
+* dereverberation
+* declipping
+* de-essing
+* gentle EQ
+* level adjustment
 
-## Requirements
+Processing is intentionally configurable. A clean original recording may be a better reference than an aggressively processed one.
 
-- Linux/macOS shell environment
-- Python 3.10+ recommended
-- NVIDIA CUDA is the primary acceleration target, but hardware detection is intended to be generic
-- Qwen3-TTS installed in a dedicated Python environment
+### 3. Text to Speech with a Voice Variant
 
-The package intentionally does not vendor the Qwen3-TTS model or Python environment.
+Once you have a voice variant, use it to generate new speech from text.
 
-## Quick start
+```text
+Voice Variant + Text → Generated Speech
+```
 
-Copy the example machine configuration:
+Generate multiple takes and adjust the generation parameters to find the delivery that works best for the character.
+
+### 4. Design and Iterate
+
+Voice creation is an iterative process.
+
+Create alternate references, clean them differently, adjust generation settings, and compare the resulting takes.
+
+```text
+Reference
+    ↓
+Voice Variant
+    ↓
+Generate
+    ↓
+Compare
+    ↓
+Adjust
+    ↓
+Generate Again
+```
+
+The toolkit is designed to keep this process repeatable rather than treating voice cloning as a one-shot operation.
+
+## Quick Start
+
+### Requirements
+
+* Linux recommended
+* Python 3.12
+* NVIDIA GPU with CUDA support recommended
+* Qwen3-TTS model
+* FFmpeg and/or SoX for audio processing
+
+### Install
 
 ```bash
+git clone https://github.com/SkipWestcott/character-voice.git
+cd character-voice
+
 cp config/machine.example.env config/local.env
+./command/setup
 ```
 
-Edit `config/local.env`, then:
+Check the installation:
 
 ```bash
 ./command/status
-./command/run
 ```
 
-The executor currently provides a conservative scaffold. Add model-specific generation settings to local configuration rather than hard-coding private project values into the repository.
+### Create a Voice Variant
+
+```bash
+./command/reference build \
+  --input <SAMPLE_AUDIO> \
+  --output <REFERENCE_DIR> \
+  --preset conservative
+```
+
+### Generate Speech
+
+```bash
+./command/run \
+  --reference <REFERENCE_AUDIO> \
+  "Synthetic example dialogue."
+```
+
+## How It Works
+
+The project separates the reusable voice-generation tools from local machine configuration and private character data.
+
+```text
+Character Voice
+├── Sample audio
+│      ↓
+├── Cleanup / restoration
+│      ↓
+├── Voice variant
+│      ↓
+└── Text-to-speech
+       ↓
+   Generated takes
+```
+
+Model files, source recordings, generated audio, and private character data are not part of the repository.
+
+## Documentation
+
+* [Installation](docs/installation.md)
+* [Reference Pipeline](docs/reference-pipeline.md)
+* [Audio Restoration](docs/restoration.md)
+* [Voice Design](docs/voice-design.md)
+* [Evaluation](docs/evaluation.md)
+* [Architecture](docs/architecture.md)
+* [Machine Configuration](docs/machines.md)
+* [Privacy](docs/privacy.md)
+
+## License
+
+MIT
