@@ -104,6 +104,41 @@ Check the installation:
   --preset conservative
 ```
 
+**Reference cleanup presets:**
+
+* `direct` — Use the original audio without processing
+* `minimal` — Apply basic cleanup only
+* `conservative` — Apply gentle cleanup while preserving the original voice characteristics
+* `aggressive` — Apply stronger restoration for heavily degraded recordings
+
+Start with `direct` or `conservative`. Compare variants before choosing a reference.
+
+```bash
+# Original audio
+./command/reference build \
+  --input <SAMPLE_AUDIO> \
+  --output <REFERENCE_DIR> \
+  --preset direct
+
+# Basic cleanup
+./command/reference build \
+  --input <SAMPLE_AUDIO> \
+  --output <REFERENCE_DIR> \
+  --preset minimal
+
+# Gentle cleanup
+./command/reference build \
+  --input <SAMPLE_AUDIO> \
+  --output <REFERENCE_DIR> \
+  --preset conservative
+
+# Strong restoration
+./command/reference build \
+  --input <SAMPLE_AUDIO> \
+  --output <REFERENCE_DIR> \
+  --preset aggressive
+```
+
 ### Generate Speech
 
 ```bash
