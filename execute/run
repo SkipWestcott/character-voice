@@ -1,16 +1,58 @@
 #!/usr/bin/env bash
 set -euo pipefail
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIG="$ROOT/config/defaults.env"
-[[ -f "$CONFIG" ]] && source "$CONFIG"
-[[ -f "$ROOT/config/local.env" ]] && source "$ROOT/config/local.env"
+LOCAL_CONFIG="$ROOT/config/local.env"
+SCRIPT="$ROOT/execute/generate_tts.py"
 
-PYTHON="${QWEN_TTS_PYTHON:-python3}"
-SCRIPT="$ROOT/execute/qwen_tts.py"
+set -a
+
+[[ -f "$CONFIG" ]] && source "$CONFIG"
+[[ -f "$LOCAL_CONFIG" ]] && source "$LOCAL_CONFIG"
+
+set +a
+
+fail() {
+  echo "Error: $1" >&2
+  exit 1
+}
+
+[[ -n "${QWEN_TTS_PYTHON:-}" ]] || fail \
+  "QWEN_TTS_PYTHON is not configured."
+
+[[ -n "${QWEN_TTS_MODEL:-}" ]] || fail \
+  "QWEN_TTS_MODEL is not configured."
+
+[[ -n "${REFERENCE_AUDIO:-}" ]] || fail \
+  "REFERENCE_AUDIO is not configured."
+
+[[ -f "$REFERENCE_AUDIO" ]] || fail \
+  "Reference audio file not found: $REFERENCE_AUDIO"
+
+PYTHON="$QWEN_TTS_PYTHON"
 
 if [[ ! -x "$PYTHON" ]] && ! command -v "$PYTHON" >/dev/null 2>&1; then
-  echo "Qwen Python executable not found: $PYTHON" >&2
-  exit 1
+  fail "Qwen Python executable not found: $PYTHON"
+fi
+
+[[ -d "$QWEN_TTS_MODEL" ]] || fail \
+  "Qwen model directory not found: $QWEN_TTS_MODEL"
+
+[[ -f "$SCRIPT" ]] || fail \
+  "TTS executor not found: $SCRIPT"
+
+X_VECTOR_ONLY=false
+
+for arg in "$@"; do
+  if [[ "$arg" == "--x-vector-only" ]]; then
+    X_VECTOR_ONLY=true
+    break
+  fi
+done
+
+if [[ "$X_VECTOR_ONLY" == false && -z "${REFERENCE_TEXT:-}" ]]; then
+  fail "REFERENCE_TEXT is not configured. Use --reference-text or --x-vector-only."
 fi
 
 exec "$PYTHON" "$SCRIPT" "$@"

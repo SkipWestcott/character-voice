@@ -1,5 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-echo "Repository: $ROOT"
-echo "Copy config/machine.example.env to config/local.env and configure the local Qwen3-TTS environment."
+TEMPLATE="$ROOT/config/machine.example.env"
+LOCAL="$ROOT/config/local.env"
+
+if [[ -f "$LOCAL" ]]; then
+  echo "Local configuration already exists:"
+  echo "  $LOCAL"
+  exit 0
+fi
+
+cp "$TEMPLATE" "$LOCAL"
+
+echo "Created:"
+echo "  $LOCAL"
+echo
+echo "Edit this file with your local Qwen3-TTS paths, then run:"
+echo "  ./command/status"

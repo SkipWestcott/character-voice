@@ -1,19 +1,78 @@
 #!/usr/bin/env bash
 set -euo pipefail
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIG="$ROOT/config/defaults.env"
-[[ -f "$CONFIG" ]] && source "$CONFIG"
-[[ -f "$ROOT/config/local.env" ]] && source "$ROOT/config/local.env"
+LOCAL_CONFIG="$ROOT/config/local.env"
 
-PYTHON="${QWEN_TTS_PYTHON:-python3}"
+set -a
+[[ -f "$CONFIG" ]] && source "$CONFIG"
+[[ -f "$LOCAL_CONFIG" ]] && source "$LOCAL_CONFIG"
+set +a
 
 echo "=== CHARACTER VOICE STATUS ==="
-echo "Python: $PYTHON"
-echo "Model:  ${QWEN_TTS_MODEL:-<unset>}"
-echo "Reference: ${REFERENCE_AUDIO:-<unset>}"
-echo "Output: ${OUTPUT_DIR:-<unset>}"
+echo
 
-"$PYTHON" - <<'PY'
+ERRORS=0
+
+check() {
+  local label="$1"
+  local result="$2"
+
+  if [[ "$result" == "ok" ]]; then
+    printf '%-14s OK\n' "$label"
+  else
+    printf '%-14s ERROR: %s\n' "$label" "$result"
+    ERRORS=$((ERRORS + 1))
+  fi
+}
+
+if [[ -n "${QWEN_TTS_PYTHON:-}" ]]; then
+  PYTHON="$QWEN_TTS_PYTHON"
+else
+  check "Python" "QWEN_TTS_PYTHON is not configured"
+  PYTHON=""
+fi
+
+if [[ -n "$PYTHON" ]]; then
+  if [[ -x "$PYTHON" ]] || command -v "$PYTHON" >/dev/null 2>&1; then
+    check "Python" "ok"
+  else
+    check "Python" "executable not found: $PYTHON"
+  fi
+fi
+
+if [[ -n "${QWEN_TTS_MODEL:-}" ]]; then
+  [[ -d "$QWEN_TTS_MODEL" ]] \
+    && check "Model" "ok" \
+    || check "Model" "directory not found: $QWEN_TTS_MODEL"
+else
+  check "Model" "QWEN_TTS_MODEL is not configured"
+fi
+
+if [[ -n "${REFERENCE_AUDIO:-}" ]]; then
+  [[ -f "$REFERENCE_AUDIO" ]] \
+    && check "Reference" "ok" \
+    || check "Reference" "file not found: $REFERENCE_AUDIO"
+else
+  check "Reference" "REFERENCE_AUDIO is not configured"
+fi
+
+if [[ -n "${REFERENCE_TEXT:-}" ]]; then
+  check "Transcript" "ok"
+else
+  check "Transcript" "REFERENCE_TEXT is not configured"
+fi
+
+if [[ -n "${OUTPUT_DIR:-}" ]]; then
+  check "Output" "ok"
+else
+  check "Output" "OUTPUT_DIR is not configured"
+fi
+
+if [[ -n "$PYTHON" ]] && { [[ -x "$PYTHON" ]] || command -v "$PYTHON" >/dev/null 2>&1; }; then
+  echo
+  "$PYTHON" - <<'PY'
 try:
     import torch
     print("torch:", torch.__version__)
@@ -30,3 +89,13 @@ try:
 except Exception as e:
     print("qwen_tts:", repr(e))
 PY
+fi
+
+echo
+
+if [[ "$ERRORS" -eq 0 ]]; then
+  echo "Status: READY"
+else
+  echo "Status: NOT READY ($ERRORS error(s))"
+  exit 1
+fi
