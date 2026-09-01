@@ -316,6 +316,165 @@ Detect or configure these resources rather than hardcoding them.
 
 ---
 
+## Techniques
+
+### Reference Selection
+
+* Start with the cleanest natural performance available.
+* Prefer consistent speech over maximum duration.
+* Test multiple candidate clips when available.
+* Evaluate references by generated output, not reference audio quality alone.
+
+### Reference Duration
+
+* Test short and long references separately.
+* Longer is not automatically better.
+* Keep the shortest reference that produces stable speaker identity when possible.
+
+### Reference Level
+
+* Treat reference gain as an independent variable.
+* Test multiple levels when results are inconsistent.
+* Useful sweep: `-3`, `-6`, `-9`, `-12`, `-15`, `-18 dB`.
+* Compare generated voice identity and delivery at each level.
+* Do not assume LUFS normalization is beneficial.
+
+### Reference Cleanup
+
+* Always test the original recording first.
+* Then test minimal and conservative cleanup.
+* Preserve voice characteristics over cosmetic audio quality.
+* Avoid aggressive restoration unless the source requires it.
+* Test individual processing stages before combining them.
+* Never overwrite the original recording.
+
+### Generated Takes
+
+* Generate multiple takes before changing the reference.
+* A poor delivery does not necessarily indicate a poor voice variant.
+* Separate **voice identity** from **delivery quality**.
+* Keep successful takes for comparison.
+
+### Generation Parameters
+
+* Change one parameter at a time when diagnosing behavior.
+* Keep the text constant when comparing generation settings.
+* Keep the reference constant when comparing generation settings.
+* Record successful parameter combinations.
+* Generate multiple takes before deciding that a parameter change failed.
+
+### Controlled Experiments
+
+Change one variable at a time whenever possible.
+
+```text
+Reference
+    ↓
+Choose Variable
+    ↓
+Create Candidates
+    ↓
+Generate Comparable Takes
+    ↓
+Evaluate
+    ↓
+Keep Best Candidate
+    ↓
+Test Next Variable
+```
+
+Useful variables include:
+
+* reference audio
+* reference duration
+* reference level
+* cleanup preset
+* cleanup parameters
+* generation parameters
+* text / delivery instructions
+
+### Evaluation
+
+Evaluate each result separately for:
+
+**Voice Identity**
+
+* speaker similarity
+* timbre
+* pitch characteristics
+* vocal texture
+* consistency
+
+**Speech**
+
+* intelligibility
+* pronunciation
+* rhythm
+* pacing
+* emphasis
+
+**Delivery**
+
+* emotion
+* energy
+* character
+* naturalness
+* adherence to the intended performance
+
+Do not change the reference to fix a delivery problem unless testing shows that the reference is responsible.
+
+### What We Have Learned
+
+Use this section for **validated project findings**.
+
+Do not add general TTS assumptions here. Record techniques that have actually been tested.
+
+Use this format:
+
+```text
+Technique:
+    <short name>
+
+Test:
+    <what was changed>
+
+Result:
+    <what happened>
+
+Preferred:
+    <which approach worked best>
+
+Notes:
+    <conditions / limitations>
+```
+
+Example:
+
+```text
+Technique:
+    Reference Level Sweep
+
+Test:
+    Same reference tested at multiple gain levels.
+
+Result:
+    Generated voice quality changed with reference level.
+
+Preferred:
+    Select the level based on generated output rather than reference loudness.
+
+Notes:
+    Results are model- and voice-dependent.
+```
+
+Keep experimental findings separate from general workflow guidance.
+
+Promote a technique into this section only after testing it.
+
+-------------------
+
+
+
 ## ComfyUI
 
 ComfyUI can be part of the surrounding local workflow.
