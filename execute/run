@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CONFIG="$ROOT/config/defaults.env"
+[[ -f "$CONFIG" ]] && source "$CONFIG"
+[[ -f "$ROOT/config/local.env" ]] && source "$ROOT/config/local.env"
+
+PYTHON="${QWEN_TTS_PYTHON:-python3}"
+SCRIPT="$ROOT/execute/qwen_tts.py"
+
+if [[ ! -x "$PYTHON" ]] && ! command -v "$PYTHON" >/dev/null 2>&1; then
+  echo "Qwen Python executable not found: $PYTHON" >&2
+  exit 1
+fi
+
+exec "$PYTHON" "$SCRIPT" "$@"

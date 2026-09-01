@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+case "${1:-}" in
+  build) shift; exec python3 "$ROOT/execute/reference_builder.py" "$@" ;;
+  analyze) shift; exec python3 "$ROOT/execute/audio_analyze.py" "$@" ;;
+  clean) shift; exec python3 "$ROOT/execute/audio_clean.py" "$@" ;;
+  *) echo "Usage: $0 {build|analyze|clean} ..." >&2; exit 2 ;;
+esac

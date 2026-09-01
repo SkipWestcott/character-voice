@@ -1,0 +1,42 @@
+# Local machine configuration
+config/local.env
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Generated audio
+*.wav
+*.mp3
+*.flac
+*.ogg
+*.webm
+
+# Local model/cache data
+models/
+checkpoints/
+cache/
+outputs/
+output/
+tmp/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Local/generated reference candidates
+reference-work/
+output/
+*.wav
+*.flac

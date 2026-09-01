@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CONFIG="$ROOT/config/defaults.env"
+[[ -f "$CONFIG" ]] && source "$CONFIG"
+[[ -f "$ROOT/config/local.env" ]] && source "$ROOT/config/local.env"
+
+PYTHON="${QWEN_TTS_PYTHON:-python3}"
+
+echo "=== CHARACTER VOICE STATUS ==="
+echo "Python: $PYTHON"
+echo "Model:  ${QWEN_TTS_MODEL:-<unset>}"
+echo "Reference: ${REFERENCE_AUDIO:-<unset>}"
+echo "Output: ${OUTPUT_DIR:-<unset>}"
+
+"$PYTHON" - <<'PY'
+try:
+    import torch
+    print("torch:", torch.__version__)
+    print("CUDA:", torch.cuda.is_available())
+    if torch.cuda.is_available():
+        print("GPU:", torch.cuda.get_device_name(0))
+        print("VRAM_GB:", round(torch.cuda.get_device_properties(0).total_memory / 1024**3, 2))
+except Exception as e:
+    print("torch check:", repr(e))
+
+try:
+    import qwen_tts
+    print("qwen_tts:", qwen_tts.__file__)
+except Exception as e:
+    print("qwen_tts:", repr(e))
+PY
