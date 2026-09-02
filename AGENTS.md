@@ -1,609 +1,249 @@
 # AGENTS.md
 
-## Character Voice — Agent Guide
+## Purpose
 
-This repository provides tools for working with local AI voice generation.
+Character Voice is a local toolkit for character voice development using Qwen3-TTS.
 
-The core workflow is:
+The project is concerned primarily with:
 
-```text
-Audio Sample
-    ↓
-Reference Preparation
-    ↓
-Voice Variant
-    ↓
-Text-to-Speech
-    ↓
-Generated Audio
-```
+- audio preparation
+- reference construction
+- voice cloning
+- voice design
+- generated speech
+- listening and evaluation
+- reproducible local workflows
 
-An agent working in this repository should understand the distinction between **source audio**, **reference audio**, **voice variants**, and **generated speech**.
+Treat the audio behavior of the system as the primary product surface.
 
----
+## Core Workflows
 
-## Core Capabilities
+There are three distinct workflows.
 
-### 1. Analyze Audio
+    Clean:
+    Audio -> Reference
 
-Inspect an audio file before processing it.
+    Clone:
+    Reference + Transcript -> Generated Speech
 
-Useful measurements include:
+    Design:
+    Voice Description + Text -> Generated Speech
 
-* sample rate
-* channels
-* duration
-* peak level
-* RMS level
-* crest factor
-* silence ratio
-* clipping ratio
+Do not collapse these workflows into a single generic path.
 
-Use analysis to understand the source before deciding how to process it.
+### Clean
 
-Do not assume that a file needs processing simply because it can be processed.
+Clean prepares source audio for use as a reference.
 
----
+Relevant components include:
 
-### 2. Clean Reference Audio
+- `execute/audio_analyze.py`
+- `execute/audio_clean.py`
+- `execute/reference_builder.py`
 
-Create a processed reference from an existing recording.
+Cleaning should improve the usability of source material without introducing unnecessary character or voice changes.
 
-Typical operations include:
+### Clone
 
-```text
-Trim Silence
-Remove DC Offset
-High-Pass Filter
-Noise Reduction
-Dereverberation
-Declipping
-De-Essing
-Gentle EQ
-Level Adjustment
-```
+Clone reproduces a voice from reference material.
 
-Processing should produce a **new file**.
+Clone normally requires:
 
-Never modify the original recording.
+- reference audio
+- reference transcript
+- Clone model
 
-The goal is not maximum audio quality. The goal is a reference that preserves the characteristics of the speaker while removing problems that interfere with voice cloning.
+The primary executor is:
 
----
+- `execute/generate_tts.py`
 
-## Reference Presets
+The command entry point is:
 
-Reference creation supports different levels of processing.
+- `command/run`
 
-### `direct`
+Do not change Clone behavior merely to accommodate Design.
 
-Use the original recording without processing.
+### Design
 
-```text
-Source → Reference
-```
+Design creates a voice from a natural-language voice description.
 
-Use this when the recording is already clean.
+Design requires:
 
-### `minimal`
+- VoiceDesign model
+- voice description
+- synthesis text
 
-Apply basic cleanup while making minimal changes to the recording.
+Design does not require:
 
-```text
-Source → Minimal Cleanup → Reference
-```
+- reference audio
+- reference transcript
+- an existing character voice
 
-Use this when the recording is generally clean but needs minor preparation.
+The primary executor is:
 
-### `conservative`
+- `execute/generate_design.py`
 
-Apply gentle processing intended to improve the reference while preserving the original voice characteristics.
+The command entry point is:
 
-```text
-Source → Conservative Cleanup → Reference
-```
+- `command/design`
 
-This is the preferred starting point when the source needs cleanup.
+Do not route Design through the Clone executor.
 
-### `aggressive`
+Do not require reference configuration for Design.
 
-Use stronger restoration for heavily degraded recordings.
+## Voice Design Is Iterative
 
-```text
-Source → Strong Restoration → Reference
-```
+Voice Design should be treated as an exploration process:
 
-Only use or document this preset if it is implemented by the current code.
-
----
-
-## Reference Experiments
-
-Voice cloning quality depends on the reference audio.
-
-When results are poor, do not immediately assume the TTS model or generation parameters are the problem.
-
-Test different references.
-
-For example:
-
-```text
-Original
-   ├── Direct
-   ├── Minimal
-   └── Conservative
-             ↓
-       Generate Each
-             ↓
-       Compare Results
-```
-
-A cleaner recording is not necessarily a better voice reference.
-
-A longer recording is not necessarily a better voice reference.
-
-A louder recording is not necessarily a better voice reference.
-
-Evaluate references by their **generated voice similarity and quality**, not by how polished they sound in an audio editor.
-
----
-
-## 3. Create Voice Variants
-
-A voice variant is a reusable representation of a voice reference used for generation.
-
-Conceptually:
-
-```text
-Reference Audio → Voice Variant
-```
-
-Create multiple variants when comparing:
-
-* different source recordings
-* different cleanup approaches
-* different reference lengths
-* different reference levels
-* different processing chains
-
-Keep experimental variants separate so results can be compared.
-
----
-
-## 4. Generate Speech
-
-Use a voice variant and text to generate speech.
-
-```text
-Voice Variant + Text
-          ↓
-    Generated Audio
-```
-
-Generation is probabilistic.
-
-When a delivery is close but not ideal:
-
-* generate another take
-* adjust generation parameters
-* keep the best take
-* compare against other references
-
-Do not assume that the first generated take represents the maximum quality of a voice variant.
-
----
-
-## 5. Compare Takes
-
-Treat generated audio as experimental output.
-
-Compare:
-
-### Voice
-
-* speaker similarity
-* timbre
-* pitch characteristics
-* vocal texture
-* consistency
-
-### Speech
-
-* intelligibility
-* pronunciation
-* rhythm
-* pacing
-* emphasis
+    Description
+        |
+        v
+    Generate
+        |
+        v
+    Listen
+        |
+        v
+    Evaluate
+        |
+        v
+    Revise
+        |
+        v
+    Generate Again
+
+A single generated take should not automatically be treated as the canonical voice.
+
+When useful, generate multiple takes and compare them.
+
+## Evaluate Identity Separately From Delivery
+
+When assessing generated speech, distinguish:
+
+### Identity
+
+- distinctiveness
+- consistency
+- vocal texture
+- character fit
+- apparent age
+- register
 
 ### Delivery
 
-* emotion
-* energy
-* character
-* naturalness
-* adherence to the requested performance
+- pacing
+- emphasis
+- pauses
+- articulation
+- emotional intensity
+- conversational naturalness
 
-A voice can be correct while the delivery is wrong.
+A good performance does not necessarily indicate a good character voice.
 
-Do not change the reference simply because one generated take has poor delivery.
+A strong character identity does not necessarily produce good delivery.
 
----
+When debugging a result, identify which of these is actually failing before changing the voice description or generation implementation.
 
-## Audio Processing Philosophy
+## Audio First
 
-Prefer **small, testable changes**.
+Changes to generation code should be evaluated by listening to generated audio.
 
-When experimenting:
+Do not assume that a technically successful generation is a successful voice result.
 
-```text
-Original
-   ↓
-Candidate A
-Candidate B
-Candidate C
-   ↓
-Generate
-   ↓
-Compare
-```
+Useful evaluation questions include:
 
-Do not stack many untested processing operations and then assume an improvement came from the entire chain.
+- Did the generated voice follow the requested characteristics?
+- Is the identity distinctive?
+- Is the delivery natural?
+- Did the output introduce artifacts?
+- Does the result remain useful across different text?
+- Does a change improve the intended property without damaging another one?
 
-Preserve successful candidates.
+When comparing settings or descriptions, change meaningful variables deliberately and keep comparisons controlled.
 
-Record what changed.
+## Qwen Integration
 
----
+Qwen-specific model loading and generation behavior belongs in executor modules.
 
-## Level Experiments
+Keep the command layer thin.
 
-Reference level can affect generation behavior.
+Current generation executors:
 
-When testing levels, treat level as an experimental variable rather than permanently normalizing every reference.
+- `execute/generate_tts.py` — Clone
+- `execute/generate_design.py` — Design
 
-For example:
+Do not spread Qwen-specific implementation details through unrelated commands.
 
-```text
-Reference
- ├── Original Level
- ├── -3 dB
- ├── -6 dB
- ├── -9 dB
- ├── -12 dB
- ├── -15 dB
- └── -18 dB
-```
+Do not invent Qwen generation parameters. Verify the installed API before exposing new settings.
 
-Compare the generated results.
+## Configuration
 
-Do not assume LUFS normalization is required for voice cloning.
+Tracked configuration must remain machine-neutral.
 
----
+Use:
 
-## TTS Backend
+- `config/defaults.env` for tracked defaults
+- `config/machine.example.env` for configuration examples
+- `config/local.env` for machine-specific configuration
 
-The current primary backend is:
+`config/local.env` is ignored by Git.
 
-**Qwen3-TTS 1.7B Base**
+Never add private:
 
-The integration should remain isolated from the rest of the audio workflow so that other TTS backends can be added later.
+- audio
+- transcripts
+- character descriptions
+- generated takes
+- machine paths
+- hostnames
+- IP addresses
+- credentials
+- environment-specific secrets
 
-The agent should inspect the actual installed Qwen3-TTS API and existing scripts before creating new integration code.
+to tracked files.
 
-Do not guess API parameters when the installed package or existing working scripts can be inspected.
+## Repository Safety
 
----
+Before changing an existing workflow, inspect its current behavior.
 
-## Local Audio Environment
+Preserve working Clone and Clean functionality while adding Design.
 
-The project is designed for local execution.
+Do not silently replace an existing workflow with a different implementation.
 
-The typical environment may include:
+If a change affects generated audio, test the affected workflow before considering the change complete.
 
-```text
-Python
-PyTorch
-CUDA
-NVIDIA GPU
-Qwen3-TTS
-FFmpeg
-SoX
-```
+## Testing
 
-Not every machine will have identical hardware or optional acceleration libraries.
+Prefer this progression:
 
-Detect or configure these resources rather than hardcoding them.
+1. static or syntax validation
+2. CLI validation
+3. mocked execution where practical
+4. real local generation
+5. audio inspection
+6. listening/evaluation
+7. regression test of unaffected workflows
 
----
+A successful Python process is not sufficient validation for an audio-generation change.
 
-## Techniques
+## Documentation
 
-### Reference Selection
-
-* Start with the cleanest natural performance available.
-* Prefer consistent speech over maximum duration.
-* Test multiple candidate clips when available.
-* Evaluate references by generated output, not reference audio quality alone.
+Keep documentation aligned with the actual architecture.
 
-### Reference Duration
+If adding or removing a workflow, update diagrams that describe the workflow structure.
 
-* Test short and long references separately.
-* Longer is not automatically better.
-* Keep the shortest reference that produces stable speaker identity when possible.
+In particular, do not leave diagrams implying that every workflow begins with audio if Design does not.
 
-### Reference Level
+## Git
 
-* Treat reference gain as an independent variable.
-* Test multiple levels when results are inconsistent.
-* Useful sweep: `-3`, `-6`, `-9`, `-12`, `-15`, `-18 dB`.
-* Compare generated voice identity and delivery at each level.
-* Do not assume LUFS normalization is beneficial.
+Do not commit or push automatically.
 
-### Reference Cleanup
+First:
 
-* Always test the original recording first.
-* Then test minimal and conservative cleanup.
-* Preserve voice characteristics over cosmetic audio quality.
-* Avoid aggressive restoration unless the source requires it.
-* Test individual processing stages before combining them.
-* Never overwrite the original recording.
+1. inspect the changes
+2. run local validation
+3. run relevant audio tests
+4. review the diff
+5. present the changes for human review
 
-### Generated Takes
-
-* Generate multiple takes before changing the reference.
-* A poor delivery does not necessarily indicate a poor voice variant.
-* Separate **voice identity** from **delivery quality**.
-* Keep successful takes for comparison.
-
-### Generation Parameters
-
-* Change one parameter at a time when diagnosing behavior.
-* Keep the text constant when comparing generation settings.
-* Keep the reference constant when comparing generation settings.
-* Record successful parameter combinations.
-* Generate multiple takes before deciding that a parameter change failed.
-
-### Controlled Experiments
-
-Change one variable at a time whenever possible.
-
-```text
-Reference
-    ↓
-Choose Variable
-    ↓
-Create Candidates
-    ↓
-Generate Comparable Takes
-    ↓
-Evaluate
-    ↓
-Keep Best Candidate
-    ↓
-Test Next Variable
-```
-
-Useful variables include:
-
-* reference audio
-* reference duration
-* reference level
-* cleanup preset
-* cleanup parameters
-* generation parameters
-* text / delivery instructions
-
-### Evaluation
-
-Evaluate each result separately for:
-
-**Voice Identity**
-
-* speaker similarity
-* timbre
-* pitch characteristics
-* vocal texture
-* consistency
-
-**Speech**
-
-* intelligibility
-* pronunciation
-* rhythm
-* pacing
-* emphasis
-
-**Delivery**
-
-* emotion
-* energy
-* character
-* naturalness
-* adherence to the intended performance
-
-Do not change the reference to fix a delivery problem unless testing shows that the reference is responsible.
-
-### What We Have Learned
-
-Use this section for **validated project findings**.
-
-Do not add general TTS assumptions here. Record techniques that have actually been tested.
-
-Use this format:
-
-```text
-Technique:
-    <short name>
-
-Test:
-    <what was changed>
-
-Result:
-    <what happened>
-
-Preferred:
-    <which approach worked best>
-
-Notes:
-    <conditions / limitations>
-```
-
-Example:
-
-```text
-Technique:
-    Reference Level Sweep
-
-Test:
-    Same reference tested at multiple gain levels.
-
-Result:
-    Generated voice quality changed with reference level.
-
-Preferred:
-    Select the level based on generated output rather than reference loudness.
-
-Notes:
-    Results are model- and voice-dependent.
-```
-
-Keep experimental findings separate from general workflow guidance.
-
-Promote a technique into this section only after testing it.
-
--------------------
-
-
-
-## ComfyUI
-
-ComfyUI can be part of the surrounding local workflow.
-
-It is not the conceptual definition of the voice system.
-
-The important pipeline is:
-
-```text
-Audio → Reference → Voice Variant → TTS → Audio
-```
-
-Keep core audio and TTS functionality usable independently of ComfyUI where practical.
-
----
-
-## Useful Agent Operations
-
-When asked to work with a voice, an agent should be able to reason about tasks such as:
-
-```text
-Analyze this recording
-Clean this recording
-Create a reference
-Create alternate references
-Compare reference candidates
-Test reference levels
-Create a voice variant
-Generate speech
-Generate multiple takes
-Compare takes
-Adjust generation parameters
-Iterate on the voice
-```
-
-When a result is unsatisfactory, determine **which stage is responsible** before changing everything:
-
-```text
-Source Audio
-     ↓
-Reference Processing
-     ↓
-Voice Variant
-     ↓
-Generation
-     ↓
-Delivery
-```
-
-Change one stage at a time when possible.
-
----
-
-## Important Rules
-
-### Preserve Originals
-
-Never overwrite source recordings.
-
-### Preserve Candidates
-
-Do not delete experimental references or successful generated takes merely because another candidate is preferred.
-
-### Separate Identity From Delivery
-
-Reference audio primarily affects **who the voice sounds like**.
-
-Generation settings and text affect **how the voice performs**.
-
-Evaluate those separately.
-
-### Prefer Evidence
-
-If a technique has been tested successfully, record the actual procedure.
-
-If something is only theoretical or planned, label it accordingly.
-
-Do not turn an experimental observation into a universal rule.
-
-### Inspect Before Changing
-
-Before modifying the audio pipeline:
-
-1. Inspect the current implementation.
-2. Inspect existing working scripts.
-3. Inspect available CLI commands.
-4. Test the smallest useful change.
-5. Compare the result.
-
-Do not replace a working implementation with an assumed one.
-
----
-
-## Private Data
-
-Voice recordings and character-specific data are local project data.
-
-Do not place private recordings, generated character audio, or character-specific dialogue into the public repository.
-
-Use synthetic examples and placeholders when documenting workflows.
-
-When in doubt, keep the data outside the repository.
-
----
-
-## Agent Goal
-
-The objective is not simply to produce speech.
-
-The objective is to provide a **repeatable workflow for designing, testing, and refining a voice**:
-
-```text
-Record
-  ↓
-Analyze
-  ↓
-Clean
-  ↓
-Create Reference
-  ↓
-Create Voice Variant
-  ↓
-Generate
-  ↓
-Compare
-  ↓
-Adjust
-  ↓
-Repeat
-```
-
-Treat the repository as an experimental voice-design toolkit, not just a text-to-speech wrapper.
+The GitHub repository is the distribution surface for the toolkit. The audio-generation behavior is the primary concern.

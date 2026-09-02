@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CONFIG="$ROOT/config/defaults.env"
+LOCAL_CONFIG="$ROOT/config/local.env"
+SCRIPT="$ROOT/execute/generate_design.py"
+
+set -a
+[[ -f "$CONFIG" ]] && source "$CONFIG"
+[[ -f "$LOCAL_CONFIG" ]] && source "$LOCAL_CONFIG"
+set +a
+
+fail() {
+  echo "Error: $1" >&2
+  exit 1
+}
+
+[[ -n "${QWEN_TTS_PYTHON:-}" ]] || fail \
+  "QWEN_TTS_PYTHON is not configured."
+
+[[ -n "${QWEN_TTS_DESIGN_MODEL:-}" ]] || fail \
+  "QWEN_TTS_DESIGN_MODEL is not configured."
+
+[[ -d "$QWEN_TTS_DESIGN_MODEL" ]] || fail \
+  "Qwen VoiceDesign model directory not found: $QWEN_TTS_DESIGN_MODEL"
+
+PYTHON="$QWEN_TTS_PYTHON"
+
+if [[ ! -x "$PYTHON" ]] && ! command -v "$PYTHON" >/dev/null 2>&1; then
+  fail "Qwen Python executable not found: $PYTHON"
+fi
+
+[[ -f "$SCRIPT" ]] || fail \
+  "VoiceDesign executor not found: $SCRIPT"
+
+exec "$PYTHON" "$SCRIPT" "$@"

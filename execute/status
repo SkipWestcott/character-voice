@@ -14,54 +14,36 @@ echo "=== CHARACTER VOICE STATUS ==="
 echo
 
 ERRORS=0
+CLONE_READY=1
+DESIGN_READY=1
 
 check() {
   local label="$1"
   local result="$2"
 
   if [[ "$result" == "ok" ]]; then
-    printf '%-14s OK\n' "$label"
+    printf '%-20s OK\n' "$label"
   else
-    printf '%-14s ERROR: %s\n' "$label" "$result"
+    printf '%-20s ERROR: %s\n' "$label" "$result"
     ERRORS=$((ERRORS + 1))
   fi
 }
 
+echo "Shared"
+echo "------"
+
 if [[ -n "${QWEN_TTS_PYTHON:-}" ]]; then
   PYTHON="$QWEN_TTS_PYTHON"
-else
-  check "Python" "QWEN_TTS_PYTHON is not configured"
-  PYTHON=""
-fi
 
-if [[ -n "$PYTHON" ]]; then
   if [[ -x "$PYTHON" ]] || command -v "$PYTHON" >/dev/null 2>&1; then
     check "Python" "ok"
   else
     check "Python" "executable not found: $PYTHON"
+    PYTHON=""
   fi
-fi
-
-if [[ -n "${QWEN_TTS_MODEL:-}" ]]; then
-  [[ -d "$QWEN_TTS_MODEL" ]] \
-    && check "Model" "ok" \
-    || check "Model" "directory not found: $QWEN_TTS_MODEL"
 else
-  check "Model" "QWEN_TTS_MODEL is not configured"
-fi
-
-if [[ -n "${REFERENCE_AUDIO:-}" ]]; then
-  [[ -f "$REFERENCE_AUDIO" ]] \
-    && check "Reference" "ok" \
-    || check "Reference" "file not found: $REFERENCE_AUDIO"
-else
-  check "Reference" "REFERENCE_AUDIO is not configured"
-fi
-
-if [[ -n "${REFERENCE_TEXT:-}" ]]; then
-  check "Transcript" "ok"
-else
-  check "Transcript" "REFERENCE_TEXT is not configured"
+  check "Python" "QWEN_TTS_PYTHON is not configured"
+  PYTHON=""
 fi
 
 if [[ -n "${OUTPUT_DIR:-}" ]]; then
@@ -70,7 +52,71 @@ else
   check "Output" "OUTPUT_DIR is not configured"
 fi
 
-if [[ -n "$PYTHON" ]] && { [[ -x "$PYTHON" ]] || command -v "$PYTHON" >/dev/null 2>&1; }; then
+echo
+echo "Clone"
+echo "-----"
+
+if [[ -n "${QWEN_TTS_MODEL:-}" ]]; then
+  [[ -d "$QWEN_TTS_MODEL" ]] \
+    && check "Model" "ok" \
+    || {
+      check "Model" "directory not found: $QWEN_TTS_MODEL"
+      CLONE_READY=0
+    }
+else
+  check "Model" "QWEN_TTS_MODEL is not configured"
+  CLONE_READY=0
+fi
+
+if [[ -n "${REFERENCE_AUDIO:-}" ]]; then
+  [[ -f "$REFERENCE_AUDIO" ]] \
+    && check "Reference" "ok" \
+    || {
+      check "Reference" "file not found: $REFERENCE_AUDIO"
+      CLONE_READY=0
+    }
+else
+  check "Reference" "REFERENCE_AUDIO is not configured"
+  CLONE_READY=0
+fi
+
+if [[ -n "${REFERENCE_TEXT:-}" ]]; then
+  check "Transcript" "ok"
+else
+  check "Transcript" "REFERENCE_TEXT is not configured"
+  CLONE_READY=0
+fi
+
+if [[ "$CLONE_READY" -eq 1 ]]; then
+  echo "Ready:               YES"
+else
+  echo "Ready:               NO"
+fi
+
+echo
+echo "Design"
+echo "------"
+
+if [[ -n "${QWEN_TTS_DESIGN_MODEL:-}" ]]; then
+  [[ -d "$QWEN_TTS_DESIGN_MODEL" ]] \
+    && check "VoiceDesign model" "ok" \
+    || {
+      check "VoiceDesign model" \
+        "directory not found: $QWEN_TTS_DESIGN_MODEL"
+      DESIGN_READY=0
+    }
+else
+  check "VoiceDesign model" "QWEN_TTS_DESIGN_MODEL is not configured"
+  DESIGN_READY=0
+fi
+
+if [[ "$DESIGN_READY" -eq 1 ]]; then
+  echo "Ready:               YES"
+else
+  echo "Ready:               NO"
+fi
+
+if [[ -n "$PYTHON" ]]; then
   echo
   "$PYTHON" - <<'PY'
 try:
@@ -79,7 +125,13 @@ try:
     print("CUDA:", torch.cuda.is_available())
     if torch.cuda.is_available():
         print("GPU:", torch.cuda.get_device_name(0))
-        print("VRAM_GB:", round(torch.cuda.get_device_properties(0).total_memory / 1024**3, 2))
+        print(
+            "VRAM_GB:",
+            round(
+                torch.cuda.get_device_properties(0).total_memory / 1024**3,
+                2,
+            ),
+        )
 except Exception as e:
     print("torch check:", repr(e))
 
@@ -92,10 +144,9 @@ PY
 fi
 
 echo
-
-if [[ "$ERRORS" -eq 0 ]]; then
+if [[ "$CLONE_READY" -eq 1 || "$DESIGN_READY" -eq 1 ]]; then
   echo "Status: READY"
 else
-  echo "Status: NOT READY ($ERRORS error(s))"
+  echo "Status: NOT READY"
   exit 1
 fi

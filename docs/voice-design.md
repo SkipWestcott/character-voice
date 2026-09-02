@@ -1,249 +1,221 @@
-# Voice Design Methodology
+# Voice Design
 
-Character Voice treats voice design as an iterative audio experiment rather than a single preprocessing step.
+Voice Design creates a new voice from a natural-language description rather than from a reference recording.
 
-The goal is to find a combination of reference material and generation settings that produces a consistent, useful character voice.
+The workflow is:
 
-## Core Workflow
+    Voice Description
+           |
+           v
+    VoiceDesign Model
+           |
+           v
+    Generated Take
+           |
+           v
+    Evaluation
+           |
+           v
+    Revise Description
+           |
+           v
+    Generate Again
 
-```text id="w9g1x3"
-Reference Selection
-        ↓
-Reference Preparation
-        ↓
-Candidate Evaluation
-        ↓
-Voice Clone
-        ↓
-Generated Takes
-        ↓
-Evaluation
-        ↓
-Selection
-```
+## Design vs Clone
 
-Each stage should remain independently adjustable.
+Design and Clone are separate workflows.
 
-## 1. Reference Selection
+| Workflow | Input | Purpose |
+|---|---|---|
+| Design | Voice description + text | Create a voice concept |
+| Clone | Reference audio + transcript + text | Reproduce a recorded voice |
 
-Start with a recording that represents the intended speaker or character.
+Design does not require reference audio or a transcript.
 
-Prefer a recording that is:
+Clone does not use the VoiceDesign model.
 
-* intelligible
-* representative of the desired voice
-* free of major technical defects
-* long enough for the intended cloning method
-* naturally performed rather than heavily processed
+Do not route Design through the Clone executor.
 
-Do not assume that a longer recording is automatically better.
+## Voice Descriptions
 
-Do not assume that a technically perfect recording is automatically the best reference.
+A Voice Design description should describe the characteristics you want the generated voice to have.
 
-The actual TTS result determines whether a reference is useful.
+Useful dimensions include:
 
-## 2. Reference Analysis
+- apparent age
+- gender presentation
+- vocal register
+- vocal weight
+- vocal texture
+- resonance
+- articulation
+- speaking energy
+- emotional character
+- authority or softness
+- pacing
+- conversational or formal delivery
 
-Analyze the source before processing it:
+A description can combine several dimensions.
 
-```bash id="8pjrbi"
-./command/reference analyze <SOURCE_AUDIO>
-```
+For example:
 
-The analyzer provides basic technical measurements.
+    A calm, articulate middle-aged male voice with a warm low register and restrained authority.
 
-These measurements help identify obvious problems, but they do not measure speaker similarity or character quality.
+The description should focus on the desired sound rather than on implementation details.
 
-In particular, silence estimates should not be treated as automatic speech detection.
+## Delivery vs Identity
 
-## 3. Reference Preparation
+Evaluate two different properties independently.
 
-Build comparable candidates:
+### Identity
 
-```bash id="9qf5bn"
-./command/reference build \
-  --input <SOURCE_AUDIO> \
-  --output <REFERENCE_DIR>
-```
+Identity concerns whether the generated voice feels like a distinct and coherent character.
 
-The current candidates are:
+Consider:
 
-```text id="i4k0hx"
-reference_direct.wav
-reference_minimal.wav
-reference_conservative.wav
-```
-
-The Direct candidate provides the unfiltered baseline.
-
-Minimal provides deterministic format preparation.
-
-Conservative applies restrained low-frequency cleanup.
-
-The source recording remains unchanged.
-
-## 4. Candidate Evaluation
-
-Candidates should be evaluated through the actual voice-cloning task.
-
-For each candidate, use the same controlled text whenever possible.
-
-Evaluate independently:
-
-### Speaker identity
-
-Does the generated voice sound like the intended speaker?
-
-### Consistency
-
-Does the voice remain recognizable across different text?
-
-### Intelligibility
-
-Are words rendered clearly and accurately?
-
-### Audio quality
-
-Are there unwanted artifacts, noise, distortion, pumping, or metallic sounds?
+- Is the voice recognizable across takes?
+- Does it have a distinctive character?
+- Does the vocal texture remain coherent?
+- Does it fit the intended character concept?
 
 ### Delivery
 
-Does the generated voice have the intended rhythm, emphasis, emotion, and character?
+Delivery concerns how the voice performs the supplied text.
 
-A candidate can perform well on one dimension and poorly on another.
+Consider:
 
-## 5. Generation
+- pacing
+- emphasis
+- pauses
+- emotional intensity
+- articulation
+- conversational naturalness
 
-Once a reference candidate has been selected, configure it locally and generate speech:
+A voice can have strong identity but poor delivery, or strong delivery without a sufficiently distinctive identity.
 
-```bash id="wxyb5u"
-./command/run "Synthetic example dialogue."
-```
+Do not change the voice description when the actual problem is only delivery.
 
-For normal ICL voice cloning, the reference transcript must correspond to the reference audio.
+## Iteration
 
-Speaker-embedding-only cloning can be tested with:
+Voice Design is an exploratory process.
 
-```bash id="tmyqv7"
-./command/run \
-  --x-vector-only \
-  "Synthetic example dialogue."
-```
+A useful loop is:
 
-Generation settings should be recorded when comparing experiments.
+    Description
+         |
+         v
+    Generate
+         |
+         v
+    Listen
+         |
+         v
+    Identify the problem
+         |
+         +------> Identity problem
+         |              |
+         |              v
+         |       Revise voice description
+         |
+         +------> Delivery problem
+                        |
+                        v
+                 Revise generation approach
+                        |
+                        v
+                     Generate
 
-## 6. Multiple Takes
+Change one meaningful variable at a time when evaluating a voice.
 
-A single generated take is not necessarily representative.
+This makes it easier to determine which change produced an improvement.
 
-When the generation process is stochastic, produce multiple takes using the same reference and text.
+## Multiple Takes
 
-Compare the takes for:
+Voice Design generation can vary between takes.
 
-* identity consistency
-* pronunciation
-* delivery
-* artifacts
-* prosody
+When evaluating a new voice concept, generate multiple takes rather than deciding from a single sample.
 
-A good reference should remain useful across more than one generated sentence or take.
+A single take may have:
 
-## 7. Parameter Experiments
+- unusually good or bad pacing
+- unusual emphasis
+- an atypical emotional delivery
+- small variations in vocal character
 
-Change one meaningful variable at a time.
+The goal is to identify a stable and useful voice concept rather than selecting the best isolated performance.
 
-Examples include:
+## Command
 
-* reference candidate
-* reference level
-* generation settings
-* reference duration
-* processing technique
+The Design command is:
 
-Do not change several variables simultaneously and then attribute the result to one of them.
+    ./command/design \
+      --instruct "A calm, articulate middle-aged male voice with a warm low register and restrained authority." \
+      --text "Hello. This is a test."
 
-Reference-level experiments should use separate candidates rather than modifying the source.
+The output can be specified explicitly:
 
-## 8. Level Testing
+    ./command/design \
+      --instruct "A calm, articulate middle-aged male voice with a warm low register and restrained authority." \
+      --text "Hello. This is a test." \
+      --output output/example.wav
 
-Reference level can be tested independently from restoration.
+An optional language can also be supplied:
 
-For example, controlled gain variants can be created and compared:
+    ./command/design \
+      --instruct "A calm, articulate middle-aged male voice with a warm low register and restrained authority." \
+      --text "Hello. This is a test." \
+      --language English
 
-```text id="a1pxi4"
-reference
-    ├── level variant A
-    ├── level variant B
-    └── level variant C
-```
+## Configuration
 
-The repository should not assume that one particular level is universally optimal.
+Design uses its own model configuration:
 
-A level that works for one voice or recording may not work for another.
+    QWEN_TTS_DESIGN_MODEL
 
-## 9. Processing Experiments
+The model should point to the Qwen3-TTS VoiceDesign checkpoint.
 
-If restoration is necessary, use the narrowest operation that addresses the observed problem.
+Design does not depend on:
 
-Do not automatically apply:
+    REFERENCE_AUDIO
+    REFERENCE_TEXT
 
-* denoising
-* dereverberation
-* declipping
-* de-essing
-* EQ
-* normalization
-* generative enhancement
+This allows the Design workflow to operate independently of the reference pipeline.
 
-The current implementation is intentionally limited to deterministic preparation and restrained low-frequency cleanup.
+## Evaluation
 
-Future processing techniques should remain separate experimental candidates.
+When evaluating a Design take, record observations separately for identity and delivery.
 
-## 10. Generated Audio as a Reference
+A simple evaluation can include:
 
-Generated audio can be tested as a reference in a separate experiment, but it should never silently replace the original recording.
+    Identity:
+    - distinctive
+    - coherent
+    - appropriate character
 
-Generated material can introduce:
+    Delivery:
+    - natural
+    - appropriate pacing
+    - appropriate emphasis
+    - appropriate emotional intensity
 
-* pronunciation changes
-* timing changes
-* artifacts
-* altered vocal texture
-* character drift
+Avoid changing several variables simultaneously when possible.
 
-Keep generated-reference experiments clearly separated from original-reference experiments.
+## Design Output
 
-## 11. Selection
+Design produces generated speech.
 
-The final reference should be selected based on observed performance in the intended TTS task.
+It is not automatically a reference recording.
 
-A useful selection record should identify:
+A generated Design take may later become useful as reference material, but converting Design output into a formal Clone reference is a separate workflow and is not currently automated by this project.
 
-```text id="7bq5c3"
-Reference candidate
-Generation settings
-Test text
-Take/result
-Speaker similarity
-Intelligibility
-Audio quality
-Delivery
-Notes
-```
+## Privacy
 
-The winning candidate is not necessarily the one with:
+Voice descriptions, dialogue, generated audio, and other character-specific material may be private.
 
-* the highest level
-* the longest duration
-* the lowest noise
-* the most processing
-* the most polished waveform
+Do not place private character descriptions, dialogue, generated takes, or reference recordings in the public repository.
 
-It is the candidate that produces the most useful voice.
+Machine-specific paths belong in:
 
-## Design Principle
+    config/local.env
 
-Voice design is an empirical process.
-
-The pipeline should make experiments **comparable, reversible, and explicit** rather than hiding decisions inside an automatic cleanup chain.
-::
+which is ignored by Git.
