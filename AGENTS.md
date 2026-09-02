@@ -67,6 +67,8 @@ Do not change Clone behavior merely to accommodate Design.
 
 Design creates a voice from a natural-language voice description.
 
+Generated Design audio is an experimental result and is not automatically promoted to a Clone reference.
+
 Design requires:
 
 - VoiceDesign model
@@ -247,3 +249,101 @@ First:
 5. present the changes for human review
 
 The GitHub repository is the distribution surface for the toolkit. The audio-generation behavior is the primary concern.
+
+## Local Agent Bootstrap
+
+Before changing code, establish the local runtime.
+
+    pwd
+    git status --short
+    find command execute -maxdepth 2 -type f | sort
+    ./command/status
+
+Local configuration contains machine-specific paths and must remain outside
+tracked files. Important settings are:
+
+    QWEN_TTS_PYTHON
+    QWEN_TTS_MODEL
+    QWEN_TTS_DESIGN_MODEL
+    REFERENCE_AUDIO
+    REFERENCE_TEXT
+    OUTPUT_DIR
+
+Use the configured Qwen Python rather than assuming the system Python has
+qwen_tts installed.
+
+## Agent Change Procedure
+
+For a non-trivial change:
+
+1. inspect the existing implementation;
+2. identify the workflow boundary being changed;
+3. make the smallest coherent change;
+4. run static validation;
+5. run the affected workflow;
+6. inspect generated audio and listen to it when applicable;
+7. review the diff;
+8. update documentation when behavior changes;
+9. stop for human review before committing or pushing.
+
+A successful Python invocation is not sufficient validation for audio changes.
+The generated speech is the primary product surface.
+
+Useful validation commands include:
+
+    python -m py_compile execute/*.py
+    git diff --check
+    ./command/status
+
+For synthesis changes, perform an actual `./command/design` or `./command/run`
+test and inspect the resulting WAV.
+
+Generated validation audio is disposable unless intentionally tracked.
+
+## Local Audio Diagnostics
+
+When debugging synthesis, separate these questions:
+
+- Did the command execute?
+- Did the model load?
+- Was a valid WAV produced?
+- Does the WAV have the expected format?
+- Does the voice sound correct?
+- Does the voice remain consistent across different text?
+
+Use standard local audio tools when available, for example:
+
+    file output/example.wav
+    ffprobe output/example.wav
+
+Do not infer voice quality from logs alone.
+
+## Practical Qwen Rule
+
+The installed Qwen package and local model installation are the source of truth.
+
+Before introducing a Qwen-specific parameter or behavior:
+
+1. inspect the installed package;
+2. inspect the actual callable signature;
+3. confirm the local model path;
+4. run a real synthesis test.
+
+Do not guess undocumented parameters.
+
+Keep Qwen-specific behavior isolated in the execution layer rather than
+spreading provider-specific logic through command wrappers.
+
+## Agent Git Rule
+
+Do not automatically commit or push changes.
+
+Before requesting review, inspect:
+
+    git status
+    git diff --stat
+    git diff
+    git diff --check
+
+Do not commit private reference recordings, local environment files, model
+weights, credentials, or machine-specific configuration.

@@ -1,216 +1,409 @@
 # Architecture
 
-Character Voice is organized as a small command layer around reusable audio-processing and TTS execution scripts.
+## Overview
 
-The architecture separates **what the user does** from **how the operation is implemented**.
+Character Voice is a portable command-line toolkit for developing AI character
+voices with Qwen3-TTS.
 
-## Workflow
+The architecture separates three distinct workflows:
 
-```text
-Audio Source
-    ↓
-command/reference
-    ↓
-execute/audio_analyze.py
-execute/reference_builder.py
-execute/audio_clean.py
-    ↓
-Reference Candidate
-    ↓
-config/local.env
-    ↓
-command/run
-    ↓
-execute/generate_tts.py
-    ↓
-Generated Audio
-```
+                         ┌── Clean ──→ Reference
+                         │
+Character Voice ─────────┼── Clone ───→ Generated Speech
+                         │
+                         └── Design ──→ Generated Speech
 
-## Repository Layers
+The workflows share the same repository and command conventions but do not
+represent the same operation.
 
-### `command/`
+- Clean prepares reference audio.
+- Clone uses reference audio and its transcript to generate speech.
+- Design generates speech from a natural-language voice description without
+  requiring reference audio.
 
-Human-facing entry points.
+Design does not currently feed automatically into Clone.
+
+## Command Boundary
+
+The public interface is contained in `command/`.
 
 Current commands:
 
-```text
-command/setup
-command/status
-command/reference
-command/run
-```
+    command/reference
+    command/run
+    command/design
 
-The command layer handles configuration loading, basic validation, and dispatch.
+The command layer should remain small.
 
-It should remain thin.
+Its responsibilities are:
 
-### `execute/`
+- expose stable user-facing commands,
+- establish the repository root,
+- forward arguments,
+- and invoke the corresponding implementation.
 
-Implementation logic.
+It should not contain model-specific inference logic.
 
-Current components include:
+## Execution Boundary
 
-```text
-execute/audio_analyze.py
-execute/audio_clean.py
-execute/reference_builder.py
-execute/generate_tts.py
-```
+Workflow orchestration lives in `execute/`.
 
-These scripts perform the actual audio inspection, reference preparation, candidate construction, and TTS generation.
+Current implementations:
 
-### `config/`
+    execute/reference
+    execute/run
+    execute/design
+    execute/status
 
-Configuration templates and local machine settings.
+The execution layer is responsible for:
 
-```text
-config/defaults.env
-config/machine.example.env
-config/local.env
-```
+- loading tracked and local configuration,
+- validating prerequisites,
+- selecting the configured runtime,
+- selecting the appropriate model,
+- invoking the backend,
+- and reporting failures clearly.
 
-`config/local.env` is machine-specific and ignored by Git.
+The execution layer should not contain character-specific identity data.
 
-Source code should not contain private machine paths.
+## Model Integration
 
-### `docs/`
+Python model integration is kept separate from the shell command interface.
 
-Documents the workflow, methodology, installation requirements, and public/private boundary.
+Current Qwen generation implementations include:
 
-Documentation should describe behavior that exists in the repository rather than planned functionality.
+    execute/generate_tts.py
+    execute/generate_design.py
 
-## Reference Pipeline
+This separation allows the command interface and workflow structure to remain
+stable if the model backend changes.
 
-Reference processing is intentionally independent from Qwen3-TTS.
+Qwen-specific API calls should remain isolated to the generation implementation.
 
-The pipeline can:
+Do not spread Qwen imports, model-specific parameters, or inference details into
+the public command wrappers unless there is a concrete reason to do so.
 
-1. inspect a source recording
-2. create reference candidates
-3. inspect the resulting candidates
-4. select a candidate for TTS testing
+## Clean Workflow
 
-Reference preparation does not require loading the Qwen model.
+Clean is the reference-audio preparation stage.
 
-This allows audio decisions to be made before expensive TTS generation.
+Conceptually:
 
-## TTS Layer
+    source audio
+         ↓
+    analyze / inspect
+         ↓
+    clean / normalize
+         ↓
+    reference candidates
 
-`execute/generate_tts.py` provides the repository's integration with the installed Qwen3-TTS package.
+The resulting reference is an input to Clone.
 
-The project does not reimplement the model.
+Clean does not synthesize character speech.
 
-The executor:
+Reference processing should remain independent of the generation backend where
+practical.
 
-1. loads the configured Qwen Python environment
-2. loads the configured model
-3. creates a voice-cloning prompt from the configured reference
-4. generates speech
-5. writes the resulting waveform
+## Clone Workflow
 
-The integration should follow the API exposed by the installed Qwen package.
+Clone uses an existing reference recording and its transcript.
 
-Do not invent or assume model parameters.
+Conceptually:
+
+    reference audio ─────┐
+                         ├──→ Qwen Clone ──→ generated speech
+    reference transcript ┘
+
+    synthesis text ────────────────────────→
+
+The reference audio establishes the source voice.
+
+The reference transcript allows the cloning model to associate the recording
+with its spoken content.
+
+Clone configuration includes:
+
+    QWEN_TTS_MODEL
+    REFERENCE_AUDIO
+    REFERENCE_TEXT
+
+Clone should not require VoiceDesign-specific configuration.
+
+## Design Workflow
+
+Design creates a voice from a natural-language description.
+
+Conceptually:
+
+    voice description ──┐
+                       ├──→ Qwen VoiceDesign ──→ generated speech
+    synthesis text ────┘
+
+Design configuration includes:
+
+    QWEN_TTS_DESIGN_MODEL
+
+It does not require:
+
+    REFERENCE_AUDIO
+    REFERENCE_TEXT
+
+This distinction is intentional.
+
+Design is useful when the desired voice does not yet have a reference recording,
+or when exploring possible character identities before committing to a reference.
+
+## Design Iteration
+
+Design is naturally iterative:
+
+    description
+        ↓
+    generation
+        ↓
+    listening
+        ↓
+    evaluation
+        ↓
+    revised description
+        ↓
+    generation
+
+The generated audio is an experimental result.
+
+It is not automatically treated as a reference recording.
+
+A future workflow may allow a deliberately selected Design result to become input
+to Clone, but that is outside the current architecture.
+
+Do not implement Design → Clone automatically unless explicitly requested.
+
+## Identity and Delivery
+
+Voice identity and line delivery should be treated as separate concerns.
+
+Identity describes relatively persistent vocal characteristics:
+
+- apparent age,
+- pitch or register,
+- vocal weight,
+- brightness,
+- texture,
+- resonance,
+- articulation,
+- and other recognizable qualities.
+
+Delivery describes how the character performs a particular line:
+
+- emotional state,
+- energy,
+- confidence,
+- pacing,
+- restraint,
+- conversational style,
+- emphasis,
+- and similar performance qualities.
+
+This distinction matters during Design iteration.
+
+If identity is correct but delivery is wrong, revise the delivery instruction before
+discarding the voice design.
+
+If identity is wrong, revise the voice description itself.
+
+The implementation should not assume that one universal prompt structure is
+correct for every character.
 
 ## Configuration Boundary
 
-Machine-specific resources enter the system through environment configuration:
+Configuration is divided between portable defaults and machine-specific values.
 
-```text
-QWEN_TTS_PYTHON
-QWEN_TTS_MODEL
-REFERENCE_AUDIO
-REFERENCE_TEXT
-OUTPUT_DIR
-```
+Tracked:
 
-This keeps the execution code independent of:
+    config/defaults.env
+    config/machine.example.env
 
-* usernames
-* hostnames
-* absolute filesystem layouts
-* private recordings
-* character-specific data
+Local and ignored:
 
-## Audio Data Boundary
+    config/local.env
 
-The repository contains processing logic, not private audio.
+The principal configuration variables are:
 
-A typical local workflow is:
+    QWEN_TTS_PYTHON
+    QWEN_TTS_MODEL
+    QWEN_TTS_DESIGN_MODEL
+    REFERENCE_AUDIO
+    REFERENCE_TEXT
+    OUTPUT_DIR
 
-```text
-Private source recording
+The model paths for Clone and Design are intentionally separate.
+
+Machine-specific paths must not be embedded in tracked implementation.
+
+Character-specific reference recordings and private transcripts must also remain
+outside the public repository unless explicitly intended to be public.
+
+## Backend Isolation
+
+The repository should treat Qwen3-TTS as an implementation dependency rather than
+as the definition of the public interface.
+
+The desired dependency direction is:
+
+    command
+       ↓
+    execute
+       ↓
+    generation backend
+       ↓
+    Qwen3-TTS
+
+Not:
+
+    command
+       ↓
+    Qwen-specific inference details
+
+This keeps the workflow understandable and makes future backend replacement or
+addition possible.
+
+## Audio Boundary
+
+Generated audio is the primary behavioral artifact.
+
+A successful synthesis operation should produce a usable WAV file with expected
+audio properties.
+
+Technical validation and perceptual evaluation are separate:
+
+    technical validation
         ↓
-Local reference candidates
+    valid, playable audio
+
+    perceptual evaluation
         ↓
-Selected local reference
+    identity / naturalness / adherence / delivery
+
+Both matter.
+
+The architecture should not introduce processing that changes the character voice
+without a clear reason.
+
+Reference normalization, generated-output processing, and voice-design behavior
+should remain distinguishable operations.
+
+## Status and Diagnostics
+
+`command/status` provides environment diagnostics.
+
+It should answer whether the local machine is capable of running the configured
+workflows.
+
+Relevant checks include:
+
+- configuration,
+- configured model directories,
+- Python availability,
+- PyTorch availability,
+- CUDA availability,
+- visible GPU,
+- VRAM,
+- and Qwen package availability.
+
+Clone and Design readiness are evaluated independently.
+
+A machine can therefore be:
+
+- Clone-ready,
+- Design-ready,
+- ready for both,
+- or ready for neither.
+
+Status is diagnostic; it should not perform model generation.
+
+## Runtime Model Loading
+
+The current command-line implementation may start a new Python process and load a
+model for each generation.
+
+This is acceptable for the current architecture.
+
+Repeated model loading may become a performance concern during iterative Design,
+but persistent model workers, daemons, caches, or sessions are not currently part
+of the architecture.
+
+If persistent inference is introduced later, it should preserve the existing
+command semantics and be treated as an explicit runtime architecture change.
+
+## Privacy Boundary
+
+The repository is intended to remain generic and portable.
+
+Public source should not contain:
+
+- private reference recordings,
+- private transcripts,
+- personal recordings,
+- private dialogue,
+- machine-specific home directories,
+- credentials,
+- API keys,
+- local model cache paths,
+- identifying infrastructure details,
+- or character-specific secrets.
+
+Local configuration and generated audio should remain outside version control when
+they contain private material.
+
+The architecture therefore separates:
+
+    public implementation
+            +
+    local environment
+            +
+    private character assets
+
+rather than embedding all three together.
+
+## Testing Boundary
+
+Testing should proceed from inexpensive checks to real inference.
+
+Typical progression:
+
+    shell syntax
         ↓
-Local TTS generation
+    Python syntax
         ↓
-Local generated audio
-```
+    argument validation
+        ↓
+    environment/status validation
+        ↓
+    actual model generation
+        ↓
+    WAV validation
+        ↓
+    listening / perceptual evaluation
 
-These files should remain outside version control.
+Changes to shared infrastructure should include regression testing for every
+affected workflow.
 
-## Reversibility
+A successful model load or process exit is not evidence that the resulting voice
+is correct.
 
-The source recording is never modified by the reference pipeline.
+## Architectural Principles
 
-Processing creates new candidate files.
+Preserve these principles when extending the repository:
 
-This makes it possible to compare:
-
-```text
-original
-direct
-minimal
-conservative
-experimental
-```
-
-without destroying the original input.
-
-## Extensibility
-
-New processing techniques should normally be added as explicit operations or presets rather than silently changing an existing baseline.
-
-For example:
-
-```text
-minimal
-conservative
-experimental-denoise
-experimental-declip
-```
-
-An experimental technique should not redefine what an existing preset means.
-
-Likewise, new TTS backends should remain isolated from the existing Qwen integration rather than adding backend-specific behavior throughout the command layer.
-
-## Design Rule
-
-The repository should make the following separation obvious:
-
-```text
-Commands
-    → orchestration
-
-Execution
-    → implementation
-
-Configuration
-    → machine-specific resources
-
-Audio
-    → local/private data
-
-Model
-    → external Qwen3-TTS installation
-```
-
-A new machine should primarily require new configuration.
-
-A new audio experiment should primarily require a new candidate or processing operation.
-
-A change to the TTS backend should primarily affect the TTS execution layer.
+1. Keep Clean, Clone, and Design conceptually distinct.
+2. Keep the public command layer small.
+3. Keep model-specific code isolated.
+4. Keep machine-specific configuration local.
+5. Keep private character assets out of tracked source.
+6. Do not turn one character's successful settings into global defaults.
+7. Treat generated audio as the final behavioral artifact.
+8. Evaluate voice changes by listening, not only by technical tests.
+9. Prefer the smallest change that satisfies the requirement.
+10. Do not introduce persistent infrastructure without a concrete need.
+11. Keep documentation synchronized with actual implementation.
+12. Do not automatically commit or push repository changes.
