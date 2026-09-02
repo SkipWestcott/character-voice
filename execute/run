@@ -43,15 +43,22 @@ fi
   "TTS executor not found: $SCRIPT"
 
 X_VECTOR_ONLY=false
+REFERENCE_TEXT_OVERRIDE=false
 
 for arg in "$@"; do
-  if [[ "$arg" == "--x-vector-only" ]]; then
-    X_VECTOR_ONLY=true
-    break
-  fi
+  case "$arg" in
+    --x-vector-only)
+      X_VECTOR_ONLY=true
+      ;;
+    --reference-text)
+      REFERENCE_TEXT_OVERRIDE=true
+      ;;
+  esac
 done
 
-if [[ "$X_VECTOR_ONLY" == false && -z "${REFERENCE_TEXT:-}" ]]; then
+if [[ "$X_VECTOR_ONLY" == false \
+      && "$REFERENCE_TEXT_OVERRIDE" == false \
+      && -z "${REFERENCE_TEXT:-}" ]]; then
   fail "REFERENCE_TEXT is not configured. Use --reference-text or --x-vector-only."
 fi
 

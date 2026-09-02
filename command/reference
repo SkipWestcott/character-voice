@@ -1,9 +1,60 @@
 #!/usr/bin/env bash
 set -euo pipefail
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
 case "${1:-}" in
-  build) shift; exec python3 "$ROOT/execute/reference_builder.py" "$@" ;;
-  analyze) shift; exec python3 "$ROOT/execute/audio_analyze.py" "$@" ;;
-  clean) shift; exec python3 "$ROOT/execute/audio_clean.py" "$@" ;;
-  *) echo "Usage: $0 {build|analyze|clean} ..." >&2; exit 2 ;;
+  build)
+    shift
+    exec python3 "$ROOT/execute/reference_builder.py" "$@"
+    ;;
+
+  analyze)
+    shift
+
+    if [[ $# -lt 1 ]]; then
+      echo "Usage: $0 analyze AUDIO_FILE [--json]" >&2
+      exit 2
+    fi
+
+    INPUT="$1"
+    shift
+
+    if [[ ! -f "$INPUT" ]]; then
+      echo "Input not found: $INPUT" >&2
+      exit 1
+    fi
+
+    if [[ "${INPUT,,}" == *.wav ]]; then
+      exec python3 "$ROOT/execute/audio_analyze.py" "$INPUT" "$@"
+    fi
+
+    command -v ffmpeg >/dev/null 2>&1 || {
+      echo "ffmpeg is required to analyze non-WAV audio." >&2
+      exit 1
+    }
+
+    TMP_WAV="$(mktemp --suffix=.wav)"
+    trap 'rm -f "$TMP_WAV"' EXIT
+
+    ffmpeg \
+      -y \
+      -hide_banner \
+      -loglevel error \
+      -i "$INPUT" \
+      -c:a pcm_s16le \
+      "$TMP_WAV"
+
+    exec python3 "$ROOT/execute/audio_analyze.py" "$TMP_WAV" "$@"
+    ;;
+
+  clean)
+    shift
+    exec python3 "$ROOT/execute/audio_clean.py" "$@"
+    ;;
+
+  *)
+    echo "Usage: $0 {build|analyze|clean} ..." >&2
+    exit 2
+    ;;
 esac

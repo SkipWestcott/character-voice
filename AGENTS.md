@@ -576,6 +576,8 @@ Do not place private recordings, generated character audio, or character-specifi
 
 Use synthetic examples and placeholders when documenting workflows.
 
+When in doubt, keep the data outside the repository.
+
 ---
 
 ## Agent Goal

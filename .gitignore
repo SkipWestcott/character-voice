@@ -37,6 +37,3 @@ logs/
 
 # Local/generated reference candidates
 reference-work/
-output/
-*.wav
-*.flac

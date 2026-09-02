@@ -1,44 +1,172 @@
 # Reference Audio Pipeline
 
-Voice-clone reference preparation is treated as an experiment, not a single mandatory cleanup chain.
+Voice-reference preparation is an experiment, not a mandatory cleanup chain.
 
-## Recommended flow
+The goal is to produce comparable candidates while preserving the original recording.
+
+## Pipeline
 
 ```text
-source recording
-    ├── DIRECT      → untouched reference candidate
-    ├── MINIMAL     → same source, format/transport changes only
-    └── RESTORED    → conservative deterministic cleanup
-                         ↓
-                    analyze candidates
-                         ↓
-                    generate test takes
-                         ↓
-                 select the best reference
+Source Recording
+      │
+      ├── DIRECT
+      │
+      ├── MINIMAL
+      │
+      └── CONSERVATIVE
+             │
+             ▼
+        Analyze Candidates
+             │
+             ▼
+       Generate Test Takes
+             │
+             ▼
+          Evaluate
 ```
 
-A short clean recording may already be the best reference. Do not assume that a longer or more processed recording is better.
+The source recording is never modified.
 
-## Extension strategy
+## Candidates
 
-If the source recording is too short, an extended reference can be built from a generated or additional recording, then cleaned and compared with the direct source. Keep this as a separate candidate strategy:
+### DIRECT
 
-- `DIRECT`: original clean recording.
-- `RESTORED`: original recording with conservative cleanup.
-- `EXTENDED`: additional/generated material followed by cleanup.
+The source is converted to the canonical WAV representation without intentional audio filtering.
 
-Generated material can introduce artifacts or speaker-character changes, so it should not silently replace the original.
+For example, an MP3 source becomes a real PCM WAV file.
 
-## Candidate rule
+Direct is the baseline against which processing changes should be evaluated.
 
-Keep processing reversible and independently switchable. The pipeline should make it easy to compare:
+### MINIMAL
 
-1. speaker similarity
-2. content consistency / intelligibility
-3. audio quality
+The source is converted to deterministic PCM WAV output without intentional audio filtering.
 
-These are separate evaluation dimensions. A polished waveform is not automatically a better speaker reference.
+For sources that already match the target representation, Minimal may be effectively identical to Direct.
 
-## Level matching
+The distinction is conceptual: Direct establishes the unfiltered baseline, while Minimal represents basic format preparation.
 
-Reference level experiments are separate from restoration. If testing multiple levels, create separate candidates (for example, with controlled gain changes) and record the level in the candidate metadata. Do not bake a particular project-specific dB value into the generic pipeline.
+### CONSERVATIVE
+
+The source is converted to PCM WAV and receives restrained low-frequency cleanup.
+
+The current implementation applies a 20 Hz high-pass filter.
+
+This is deliberately mild. It is not a general-purpose restoration chain.
+
+## Analyze Before Processing
+
+Inspect the source before deciding whether processing is necessary:
+
+```bash
+./command/reference analyze <SOURCE_AUDIO>
+```
+
+For machine-readable output:
+
+```bash
+./command/reference analyze <SOURCE_AUDIO> --json
+```
+
+Current measurements include:
+
+* sample rate
+* channels
+* duration
+* sample width
+* peak dBFS
+* RMS dBFS
+* crest factor
+* estimated low-level/silence ratio
+* estimated clipping ratio
+
+These measurements are diagnostic rather than prescriptive.
+
+In particular, the silence estimate is not speech detection. A high value does not automatically justify trimming.
+
+## Build Candidates
+
+Build the standard candidate set with:
+
+```bash
+./command/reference build \
+  --input <SOURCE_AUDIO> \
+  --output <REFERENCE_DIR>
+```
+
+The output contains:
+
+```text
+reference_direct.wav
+reference_minimal.wav
+reference_conservative.wav
+```
+
+Analysis JSON is also generated for each candidate.
+
+## Evaluate Candidates
+
+Candidate selection should be based on the actual TTS task.
+
+Compare candidates using the same controlled text and, when appropriate, multiple generated takes.
+
+Evaluate independently:
+
+### Speaker similarity
+
+Does the generated voice resemble the intended speaker or character?
+
+### Content consistency
+
+Is the requested text rendered clearly and faithfully?
+
+### Audio quality
+
+Are there clicks, pumping, metallic artifacts, excessive noise, or bandwidth problems?
+
+### Delivery
+
+Does the generated speech have the desired timing, emphasis, prosody, and character?
+
+A candidate can perform well on one dimension and poorly on another.
+
+## Processing Principle
+
+Do not assume that:
+
+* louder is better
+* longer is better
+* cleaner is better
+* more processed is better
+* less silence is better
+* a technically superior waveform produces a better cloned voice
+
+The reference is ultimately evaluated by how well it works in the intended TTS system.
+
+## Level Experiments
+
+Reference level experiments are separate from restoration.
+
+If testing different levels, create separate candidates and record the gain used for each.
+
+Do not bake a project-specific level into the generic pipeline.
+
+For example, a private experiment may compare several controlled gain settings, but the repository should not assume that any particular dB value is universally optimal.
+
+## Future Extensions
+
+Additional processing can be added later as independent candidates.
+
+Potential techniques include:
+
+* broadband denoising
+* dereverberation
+* declipping
+* de-essing
+* gentle EQ
+* speech-aware trimming
+* bandwidth restoration
+* ML-based enhancement
+
+These should remain optional and independently testable.
+
+They should not replace the direct baseline or become automatic defaults merely because they produce a more polished waveform.

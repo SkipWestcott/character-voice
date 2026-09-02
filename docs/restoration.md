@@ -1,32 +1,168 @@
-# Conservative Restoration
+# Audio Restoration
 
-The default goal is **preserve the speaker while removing obvious technical defects**.
+Audio restoration is optional.
 
-## Stage guidance
+The default goal is to **preserve the speaker while removing obvious technical problems**. Processing should only be used when there is evidence that it helps the reference.
 
-| Stage | Default | Use when | Risk |
-|---|---|---|---|
-| Trim / VAD | Optional | Excessive leading/trailing silence | Can remove useful breath/prosody |
-| DC removal | Optional | Measurable DC offset | Very low |
-| High-pass | Optional | Rumble / handling noise | Can thin the voice |
-| Broadband denoise | Optional | Clearly audible steady noise | Can remove consonants or vocal texture |
-| Dereverb | Optional | Strong room coloration | Can create artifacts |
-| Declipping | Optional | Actual clipping is present | Reconstruction can alter timbre |
-| Bandwidth restoration | Optional | Severe recording bandwidth limits | Can synthesize non-original detail |
-| De-ess | Optional | Excessive sibilance | Can dull consonants |
-| Gentle EQ | Optional | Clear spectral imbalance | Changes vocal identity |
-| Loudness normalization | Not default | Delivery/mastering requirement | Changes dynamics and level |
+A cleaner or more polished recording is not necessarily a better voice-cloning reference.
 
-The generic implementation intentionally keeps heavyweight ML enhancement out of the default path. If an external enhancement model is added, it should be an optional backend and its output should remain a separate candidate.
+## Current Implementation
 
-## What not to do by default
+The current pipeline provides only restrained deterministic preparation:
 
-- Do not aggressively denoise a clean recording.
-- Do not apply generative enhancement merely because the result sounds more polished.
-- Do not normalize every reference to a fixed LUFS target without model-specific testing.
-- Do not overwrite the source recording.
-- Do not assume more seconds of audio means better speaker identity.
+| Preset         | Current behavior                                          |
+| -------------- | --------------------------------------------------------- |
+| `direct`       | Convert source to canonical WAV; no intentional filtering |
+| `minimal`      | Deterministic PCM WAV preparation                         |
+| `conservative` | Minimal preparation plus 20 Hz high-pass                  |
 
-## Analysis
+The repository does **not** currently implement general-purpose denoising, dereverberation, declipping, de-essing, EQ, or generative enhancement.
 
-For each candidate, record at least sample rate, duration, channels, peak dBFS, RMS dBFS, crest factor, estimated silence ratio, and clipping ratio. These are diagnostic signals, not a replacement for listening and TTS evaluation.
+## Restoration Techniques
+
+The following techniques are useful when a source has a specific problem. They are described here as methodology and future extension points rather than automatic processing stages.
+
+### Trim / Speech Detection
+
+**Use when:** the recording contains excessive leading or trailing material.
+
+**Risk:** removing useful breaths, pauses, or natural prosody.
+
+Do not trim solely because an analyzer reports a high silence ratio. The current silence measurement is an amplitude estimate, not speech detection.
+
+### DC Removal
+
+**Use when:** measurable DC offset is present.
+
+**Risk:** generally low, but unnecessary processing should still be avoided.
+
+### High-Pass Filtering
+
+**Use when:** there is genuine low-frequency rumble, handling noise, or other unwanted energy below the useful vocal range.
+
+**Risk:** an unnecessarily high cutoff can thin the voice.
+
+The current Conservative preset applies only a restrained 20 Hz high-pass.
+
+A stronger high-pass should be an explicit experiment rather than an assumption.
+
+### Broadband Denoising
+
+**Use when:** steady background noise is clearly audible.
+
+**Risk:** denoising can remove consonants, breath detail, and vocal texture. Excessive processing can produce watery or metallic artifacts.
+
+Do not denoise a clean recording simply because noise-reduction software is available.
+
+### Dereverberation
+
+**Use when:** room reflections significantly color the recording.
+
+**Risk:** dereverberation can introduce artifacts and alter the character of the voice.
+
+Keep dereverberated output as a separate candidate.
+
+### Declipping
+
+**Use when:** actual digital clipping is present.
+
+**Risk:** clipped samples must be reconstructed. The result can change vocal timbre or introduce artifacts.
+
+Do not apply declipping to a recording that is not clipped.
+
+### De-Essing
+
+**Use when:** excessive sibilance is clearly interfering with the recording.
+
+**Risk:** excessive reduction can dull consonants and speech intelligibility.
+
+### Gentle EQ
+
+**Use when:** the recording has a clear spectral imbalance that interferes with the intended reference.
+
+**Risk:** EQ changes vocal timbre and therefore can affect speaker identity.
+
+EQ should be treated as an experiment, not cosmetic mastering.
+
+### Loudness Normalization
+
+**Use when:** a controlled delivery or level experiment requires it.
+
+**Risk:** normalization changes the signal level and potentially its dynamics.
+
+Do not normalize every reference to a universal LUFS target without evidence that the target benefits the TTS system.
+
+### Bandwidth Restoration
+
+**Use when:** the original recording has unusually restricted bandwidth.
+
+**Risk:** restoration systems may synthesize information that was not present in the source.
+
+Any reconstructed high-frequency content should be treated as experimental.
+
+### Generative Enhancement
+
+**Use when:** a separate experiment is specifically intended to test whether an enhancement model improves the TTS reference.
+
+**Risk:** generative enhancement can alter pronunciation, vocal texture, timing, or speaker identity.
+
+Enhanced output must remain a separate candidate. It must never silently replace the original.
+
+## Recommended Decision Process
+
+Use:
+
+```text id="g4yrxr"
+Analyze
+   ↓
+Identify an actual problem
+   ↓
+Choose the narrowest technique that addresses it
+   ↓
+Create a separate candidate
+   ↓
+Compare against the unprocessed baseline
+   ↓
+Evaluate in the actual TTS task
+```
+
+Do not start with a restoration stack and assume every stage is beneficial.
+
+## Candidate Preservation
+
+Always preserve:
+
+1. the original recording
+2. the direct baseline
+3. each processed candidate
+4. the processing settings
+
+This makes it possible to determine whether a particular technique actually helped.
+
+## Evaluation
+
+Restoration should be judged by the resulting voice-cloning task, not by waveform appearance alone.
+
+Compare:
+
+* speaker similarity
+* intelligibility
+* content consistency
+* audio artifacts
+* delivery/prosody
+* generalization to different text
+
+A technically cleaner signal can still produce a worse cloned voice.
+
+## Extension Principle
+
+When a new restoration technique is implemented, it should be:
+
+* optional
+* independently selectable
+* reproducible
+* separately output
+* comparable with the Direct baseline
+* documented according to its actual implementation
+
+Avoid turning a useful experimental technique into a mandatory preprocessing chain.
