@@ -6,18 +6,18 @@ A local toolkit for preparing, cloning, and designing character voices with Qwen
 
 Character Voice has three distinct workflows:
 
-Clean:
-Audio -> Reference
 
-Clone:
-Reference + Transcript -> Generated Speech
+- **Clean** prepares an existing recording for use as a reference.
+  
+    `Audio -> Reference`
 
-Design:
-Voice Description + Text -> Generated Speech
+- **Clone** reproduces a voice from reference audio and its transcript.
+  
+    `Reference + Transcript -> Generated Speech`
 
-- Clean prepares an existing recording for use as a reference.
-- Clone reproduces a voice from reference audio and its transcript.
-- Design creates a voice from a natural-language description without requiring reference audio.
+- **Design** creates a voice from a natural-language description without requiring reference audio.
+  
+    `Voice Description + Text -> Generated Speech`
 
 ## Design
 
